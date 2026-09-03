@@ -22,6 +22,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fetchLocationSuggestions } from "@/lib/api"
+import { fieldsFromSampleTrip, findSampleTrip, SAMPLE_TRIPS, type SampleTrip } from "@/lib/sample-trips"
 import { cn } from "@/lib/utils"
 import type {
   LocationInput,
@@ -157,6 +158,7 @@ export function TripForm({
   onChange,
   onSubmit,
 }: TripFormProps) {
+  const matchedSample = findSampleTrip(initialValues)
   const [values, setValues] = useState<TripFormFields>(initialValues)
   const [localErrors, setLocalErrors] = useState<TripFieldErrors>({})
   const [suggestions, setSuggestions] = useState<
@@ -168,7 +170,15 @@ export function TripForm({
   })
   const [selectedSuggestions, setSelectedSuggestions] = useState<
     Partial<Record<LocationFieldKey, LocationSuggestion>>
-  >({})
+  >(() =>
+    matchedSample
+      ? {
+          current_location: matchedSample.current,
+          pickup_location: matchedSample.pickup,
+          dropoff_location: matchedSample.dropoff,
+        }
+      : {},
+  )
   const [isSuggesting, setIsSuggesting] = useState<
     Partial<Record<LocationFieldKey, boolean>>
   >({})
@@ -177,6 +187,9 @@ export function TripForm({
   >({})
   const [openSuggestionsFor, setOpenSuggestionsFor] =
     useState<LocationFieldKey | null>(null)
+  const [activeSampleId, setActiveSampleId] = useState<SampleTrip["id"] | null>(
+    matchedSample?.id ?? null,
+  )
 
   const debounceRef = useRef<Partial<Record<LocationFieldKey, number>>>({})
   const abortRef = useRef<Partial<Record<LocationFieldKey, AbortController>>>({})
@@ -203,6 +216,7 @@ export function TripForm({
   ) => {
     const next = { ...values, [key]: value }
     setValues(next)
+    setActiveSampleId(null)
     setLocalErrors((current) => ({ ...current, [key]: undefined }))
     onChange(next)
     if (!isLocationField(key)) return
@@ -248,10 +262,39 @@ export function TripForm({
   const pickSuggestion = (key: LocationFieldKey, suggestion: LocationSuggestion) => {
     const nextValues = { ...values, [key]: suggestion.label }
     setValues(nextValues)
+    setActiveSampleId(null)
     setLocalErrors((current) => ({ ...current, [key]: undefined }))
     setSelectedSuggestions((current) => ({ ...current, [key]: suggestion }))
     setSuggestions((current) => ({ ...current, [key]: [] }))
     setUnsupportedCountry((current) => ({ ...current, [key]: false }))
+    setOpenSuggestionsFor(null)
+    onChange(nextValues)
+  }
+
+  const applySample = (sample: SampleTrip) => {
+    for (const { key } of locationFields) {
+      const timerId = debounceRef.current[key]
+      if (timerId) window.clearTimeout(timerId)
+      abortRef.current[key]?.abort()
+    }
+    if (closeMenuRef.current) window.clearTimeout(closeMenuRef.current)
+
+    const nextValues = fieldsFromSampleTrip(sample)
+    setValues(nextValues)
+    setActiveSampleId(sample.id)
+    setLocalErrors({})
+    setSelectedSuggestions({
+      current_location: sample.current,
+      pickup_location: sample.pickup,
+      dropoff_location: sample.dropoff,
+    })
+    setSuggestions({
+      current_location: [],
+      pickup_location: [],
+      dropoff_location: [],
+    })
+    setIsSuggesting({})
+    setUnsupportedCountry({})
     setOpenSuggestionsFor(null)
     onChange(nextValues)
   }
@@ -327,6 +370,35 @@ export function TripForm({
                     <AlertDescription>{errorMessage}</AlertDescription>
                   </Alert>
                 ) : null}
+
+                <div role="group" aria-labelledby="sample-trips-label" className="space-y-2">
+                  <p id="sample-trips-label" className="text-xs text-muted-foreground">
+                    Try a sample
+                  </p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {SAMPLE_TRIPS.map((sample) => {
+                      const pressed = activeSampleId === sample.id
+                      return (
+                        <Button
+                          key={sample.id}
+                          type="button"
+                          size="sm"
+                          variant={pressed ? "secondary" : "outline"}
+                          disabled={isLoading}
+                          aria-pressed={pressed}
+                          aria-label={`${sample.label}. ${sample.summary}`}
+                          onClick={() => applySample(sample)}
+                          className="h-auto min-h-9 w-full flex-col items-start justify-center gap-0 py-1.5 text-left font-medium leading-tight whitespace-normal"
+                        >
+                          <span>{sample.label}</span>
+                          <span className="font-normal text-muted-foreground">
+                            {sample.summary}
+                          </span>
+                        </Button>
+                      )
+                    })}
+                  </div>
+                </div>
 
                 {locationFields.map(({ key, label, hint, Icon, ...field }) => (
                   <FormField

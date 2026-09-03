@@ -278,10 +278,18 @@ export function DailyLogSheet({ log, index = 0 }: { log: DailyLog; index?: numbe
               strokeLinejoin="miter"
             />
           ) : null}
-          <text x="1090" y="420" fontSize="10" fill="#737373">24-HOUR TOTAL</text>
           <text
             x="1140"
-            y="420"
+            y="412"
+            textAnchor="end"
+            fontSize="10"
+            fill="#737373"
+          >
+            24-HOUR TOTAL
+          </text>
+          <text
+            x="1140"
+            y="430"
             textAnchor="end"
             fontFamily="Geist Mono, monospace"
             fontSize="12"

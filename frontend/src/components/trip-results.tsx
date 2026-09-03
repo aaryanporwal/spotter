@@ -318,7 +318,7 @@ export function TripResults({
 
       <Tabs defaultValue="route" className="no-print">
         <div className="flex items-center justify-between gap-3">
-          <TabsList className="w-full sm:w-auto">
+          <TabsList className="w-full min-w-0 sm:w-fit">
             <TabsTrigger value="route">
               <Map />
               Route
@@ -326,9 +326,9 @@ export function TripResults({
             <TabsTrigger value="logs">
               <FileText />
               Daily logs
-              <Badge variant="outline" className="hidden bg-transparent sm:inline-flex">
+              <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-foreground/10 px-1 text-[10px] font-semibold leading-none tabular-nums">
                 {plan.summary.logDays || plan.dailyLogs.length}
-              </Badge>
+              </span>
             </TabsTrigger>
           </TabsList>
           {cycleLeft > 0 ? (
