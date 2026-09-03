@@ -182,7 +182,9 @@ function RouteOverview({
             <CardTitle>Stops & duty changes</CardTitle>
             <Badge variant="secondary">{plan.stops.length} stops</Badge>
           </div>
-          <CardDescription>Times shown in the route’s local timezone.</CardDescription>
+          <CardDescription>
+            Times shown in {plan.timezone} (trip log timezone).
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ScrollArea className="lg:max-h-[430px] lg:pr-2">
@@ -238,6 +240,9 @@ function DailyLogs({ plan }: { plan: TripPlan }) {
           ))}
         </div>
       </div>
+      <p className="no-print mb-2 text-xs text-muted-foreground sm:hidden">
+        Swipe sideways to inspect the full log sheet.
+      </p>
       <div className="overflow-x-auto pb-2">
         <DailyLogSheet log={activeLog} index={activeIndex} />
       </div>
@@ -277,6 +282,9 @@ export function TripResults({
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Your trip plan</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Estimated arrival {formatDateTime(plan.summary.eta, plan.timezone)}
+            <span className="ml-1 text-muted-foreground/80">
+              ({plan.timezone} log time)
+            </span>
           </p>
         </div>
         <Button variant="outline" onClick={() => window.print()} className="self-start">
@@ -309,7 +317,7 @@ export function TripResults({
           />
           <Metric
             icon={<Fuel className="size-4" />}
-            label="Planned stops"
+            label="En-route stops"
             value={`${plan.summary.fuelStops + plan.summary.restStops}`}
             detail={`${plan.summary.fuelStops} fuel · ${plan.summary.restStops} rest`}
           />
@@ -317,7 +325,7 @@ export function TripResults({
       </Card>
 
       <Tabs defaultValue="route" className="no-print">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
           <TabsList className="w-full min-w-0 sm:w-fit">
             <TabsTrigger value="route">
               <Map />
@@ -332,7 +340,7 @@ export function TripResults({
             </TabsTrigger>
           </TabsList>
           {cycleLeft > 0 ? (
-            <p className="hidden text-xs tabular-nums text-muted-foreground md:block">
+            <p className="text-xs tabular-nums text-muted-foreground">
               {formatDuration(cycleLeft)} cycle remaining at arrival
             </p>
           ) : null}
