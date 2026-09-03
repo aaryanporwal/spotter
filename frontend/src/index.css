@@ -26,6 +26,7 @@
   --radius: 0.75rem;
   --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04);
+  --shadow-map-control: 0 1px 2px rgb(10 10 10 / 0.08), 0 8px 28px rgb(10 10 10 / 0.14);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
@@ -77,6 +78,7 @@
   --radius-xl: calc(var(--radius) + 4px);
   --shadow-xs: var(--shadow-xs);
   --shadow-card: var(--shadow-card);
+  --shadow-map-control: var(--shadow-map-control);
   --ease-out: var(--ease-out);
 }
 
@@ -134,56 +136,156 @@
 
 .leaflet-container {
   font-family: var(--font-sans);
-  background: #f5f5f5;
+  background: #e9edf0;
+  cursor: grab;
+  overscroll-behavior: contain;
 }
 
 .dark .leaflet-container {
-  background: #171717;
+  background: #16191c;
+}
+
+.route-map .leaflet-tile-pane {
+  filter: saturate(0.72) contrast(0.94) brightness(1.03);
+}
+
+.dark .route-map .leaflet-tile-pane {
+  filter: invert(0.92) hue-rotate(180deg) saturate(0.34) brightness(0.58) contrast(1.35);
+}
+
+.leaflet-container:active {
+  cursor: grabbing;
 }
 
 .leaflet-control-attribution {
+  border-radius: 7px 0 0 0;
+  background: rgb(255 255 255 / 0.78) !important;
+  color: #737373;
   font-size: 10px !important;
+  line-height: 1.6 !important;
+  backdrop-filter: blur(8px);
 }
 
-.leaflet-popup-content-wrapper,
+.dark .leaflet-control-attribution {
+  background: rgb(23 23 23 / 0.78) !important;
+  color: #a3a3a3;
+}
+
+.leaflet-control-attribution a {
+  color: inherit !important;
+}
+
+.leaflet-popup {
+  margin-bottom: 6px;
+}
+
+.leaflet-popup-content {
+  margin: 14px 16px;
+  line-height: inherit;
+}
+
+.leaflet-popup-content-wrapper {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-map-control);
+}
+
 .leaflet-popup-tip {
-  border-radius: 12px;
-  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
+  border-left: 0;
+  border-top: 0;
+  background: var(--popover);
+  box-shadow: none;
+}
+
+.milemark-route-casing,
+.milemark-route-line {
+  pointer-events: none;
+  transition: stroke-opacity 180ms var(--ease-out);
 }
 
 .milemark-map-marker {
   background: transparent;
   border: 0;
+  outline: 0;
 }
 
-.milemark-map-marker span {
+.milemark-map-marker .marker-pin {
   display: grid;
   width: 30px;
   height: 30px;
   place-items: center;
   border-radius: 999px;
-  border: 2px solid #171717;
-  background: #fff;
-  color: #171717;
+  border: 2px solid #ffffff;
+  background: #171717;
+  color: #ffffff;
   font-size: 12px;
-  font-weight: 650;
-  box-shadow: var(--shadow-xs);
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 1px rgb(23 23 23 / 0.18), 0 3px 10px rgb(23 23 23 / 0.24);
+  transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
 }
 
-.milemark-map-marker span.is-endpoint {
-  background: #171717;
-  color: #fff;
+.milemark-map-marker .marker-label {
+  transform: translateY(-0.25px);
 }
 
-.dark .milemark-map-marker span {
+.milemark-map-marker.marker-pickup .marker-pin,
+.milemark-map-marker.marker-fuel .marker-pin {
+  background: #f78c22;
+  color: #0a0a0a;
+  box-shadow: 0 0 0 1px rgb(247 140 34 / 0.28), 0 3px 12px rgb(112 57 6 / 0.28);
+}
+
+.milemark-map-marker.marker-break .marker-pin,
+.milemark-map-marker.marker-daily_rest .marker-pin,
+.milemark-map-marker.marker-cycle_restart .marker-pin {
+  background: #ffffff;
+  color: #171717;
+}
+
+.milemark-map-marker.marker-dropoff .marker-pin {
+  border-color: #f78c22;
+  box-shadow: 0 0 0 3px rgb(247 140 34 / 0.22), 0 3px 12px rgb(23 23 23 / 0.24);
+}
+
+.dark .milemark-map-marker .marker-pin {
   border-color: #fafafa;
-  background: #171717;
+  background: #fafafa;
+  color: #171717;
+}
+
+.dark .milemark-map-marker.marker-pickup .marker-pin,
+.dark .milemark-map-marker.marker-fuel .marker-pin {
+  border-color: #171717;
+  background: #f78c22;
+  color: #0a0a0a;
+}
+
+.dark .milemark-map-marker.marker-break .marker-pin,
+.dark .milemark-map-marker.marker-daily_rest .marker-pin,
+.dark .milemark-map-marker.marker-cycle_restart .marker-pin {
+  border-color: #525252;
+  background: #262626;
   color: #fafafa;
 }
 
-.dark .milemark-map-marker span.is-endpoint {
-  background: #fafafa;
-  color: #171717;
+.dark .milemark-map-marker.marker-dropoff .marker-pin {
+  border-color: #f78c22;
+}
+
+.map-control-group .map-control-button + .map-control-button {
+  border-top: 1px solid var(--border);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .milemark-map-marker:hover .marker-pin {
+    transform: translateY(-2px) scale(1.06);
+    box-shadow: 0 0 0 3px rgb(247 140 34 / 0.2), 0 6px 18px rgb(23 23 23 / 0.25);
+  }
 }
 
 .print-only {

@@ -25,13 +25,38 @@ vi.mock("leaflet", () => ({
 vi.mock("react-leaflet", () => {
   const Passthrough = ({ children }: { children?: ReactNode }) =>
     createElement("div", { "data-testid": "map" }, children)
+  const MapContainer = ({
+    children,
+    touchZoom,
+    scrollWheelZoom,
+    zoomControl,
+  }: {
+    children?: ReactNode
+    touchZoom?: boolean | string
+    scrollWheelZoom?: boolean | string
+    zoomControl?: boolean
+  }) =>
+    createElement(
+      "div",
+      {
+        "data-testid": "map-container",
+        "data-touch-zoom": String(touchZoom),
+        "data-scroll-wheel-zoom": String(scrollWheelZoom),
+        "data-default-zoom-control": String(zoomControl),
+      },
+      children,
+    )
 
   return {
-    MapContainer: Passthrough,
+    MapContainer,
     Marker: Passthrough,
     Popup: Passthrough,
     Polyline: () => null,
     TileLayer: () => null,
-    useMap: () => ({ setView: () => undefined, fitBounds: () => undefined }),
+    useMap: () => ({
+      setView: () => undefined,
+      fitBounds: () => undefined,
+      invalidateSize: () => undefined,
+    }),
   }
 })

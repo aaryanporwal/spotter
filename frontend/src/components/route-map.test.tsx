@@ -55,4 +55,21 @@ describe("RouteMap", () => {
       "true",
     )
   })
+
+  it("enables native map gestures and offers accessible controls", () => {
+    render(<RouteMap coordinates={coordinates} stops={[]} />)
+
+    expect(screen.getByTestId("map-container")).toHaveAttribute(
+      "data-touch-zoom",
+      "true",
+    )
+    expect(screen.getByTestId("map-container")).toHaveAttribute(
+      "data-scroll-wheel-zoom",
+      "center",
+    )
+    expect(screen.getByRole("button", { name: /zoom in/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /zoom out/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /fit entire route/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /expand map/i })).toBeInTheDocument()
+  })
 })
