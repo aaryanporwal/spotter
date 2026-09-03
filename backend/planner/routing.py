@@ -17,9 +17,65 @@ REQUEST_HEADERS = {
     "Accept": "application/json",
     "Accept-Language": "en-US,en;q=0.9",
 }
+US_ONLY_MESSAGE = "We only support U.S. addresses."
+US_COUNTRY_CODES = {"us", "usa"}
+US_COUNTRY_NAMES = {"united states", "united states of america", "usa"}
+US_STATE_ABBREVS = {
+    "alabama": "AL",
+    "alaska": "AK",
+    "arizona": "AZ",
+    "arkansas": "AR",
+    "california": "CA",
+    "colorado": "CO",
+    "connecticut": "CT",
+    "delaware": "DE",
+    "district of columbia": "DC",
+    "florida": "FL",
+    "georgia": "GA",
+    "hawaii": "HI",
+    "idaho": "ID",
+    "illinois": "IL",
+    "indiana": "IN",
+    "iowa": "IA",
+    "kansas": "KS",
+    "kentucky": "KY",
+    "louisiana": "LA",
+    "maine": "ME",
+    "maryland": "MD",
+    "massachusetts": "MA",
+    "michigan": "MI",
+    "minnesota": "MN",
+    "mississippi": "MS",
+    "missouri": "MO",
+    "montana": "MT",
+    "nebraska": "NE",
+    "nevada": "NV",
+    "new hampshire": "NH",
+    "new jersey": "NJ",
+    "new mexico": "NM",
+    "new york": "NY",
+    "north carolina": "NC",
+    "north dakota": "ND",
+    "ohio": "OH",
+    "oklahoma": "OK",
+    "oregon": "OR",
+    "pennsylvania": "PA",
+    "rhode island": "RI",
+    "south carolina": "SC",
+    "south dakota": "SD",
+    "tennessee": "TN",
+    "texas": "TX",
+    "utah": "UT",
+    "vermont": "VT",
+    "virginia": "VA",
+    "washington": "WA",
+    "west virginia": "WV",
+    "wisconsin": "WI",
+    "wyoming": "WY",
+}
 
 _geocode_cache: dict[str, dict[str, Any]] = {}
-_suggest_cache: dict[str, list[dict[str, Any]]] = {}
+_suggest_cache: dict[str, dict[str, Any]] = {}
 
 
 def _on_workers() -> bool:
@@ -102,9 +158,86 @@ def _state_code(address: dict[str, Any]) -> str | None:
     return None
 
 
+def _is_us_country_code(value: Any) -> bool:
+    return str(value or "").strip().casefold() in US_COUNTRY_CODES
+
+
+def _is_in_united_states(lat: float, lng: float) -> bool:
+    if 24.4 <= lat <= 49.45 and -124.9 <= lng <= -66.9:
+        return True
+    if 51.0 <= lat <= 71.5 and (-180.0 <= lng <= -129.0 or 172.0 <= lng <= 180.0):
+        return True
+    return 18.7 <= lat <= 22.4 and -160.6 <= lng <= -154.7
+
+
+def _unsupported_country_error(*, field: str) -> PlannerError:
+    return PlannerError(
+        code="UNSUPPORTED_COUNTRY",
+        field=field,
+        message=US_ONLY_MESSAGE,
+        status=422,
+    )
+
+
+def _photon_is_us(properties: dict[str, Any], lat: float, lng: float) -> bool:
+    code = properties.get("countrycode")
+    if code:
+        return _is_us_country_code(code)
+    country = properties.get("country")
+    if isinstance(country, str) and country.strip():
+        return country.strip().casefold() in US_COUNTRY_NAMES
+    return _is_in_united_states(lat, lng)
+
+
+def _empty_suggestions(*, unsupported_country: bool = False) -> dict[str, Any]:
+    return {"suggestions": [], "unsupported_country": unsupported_country}
+
+
+def _text(value: Any) -> str:
+    return str(value).strip() if isinstance(value, str) else ""
+
+
+def _state_abbrev(value: Any) -> str | None:
+    cleaned = _text(value)
+    if not cleaned:
+        return None
+    if len(cleaned) == 2 and cleaned.isalpha():
+        return cleaned.upper()
+    return US_STATE_ABBREVS.get(cleaned.casefold()) or cleaned
+
+
+def _photon_label(properties: dict[str, Any]) -> str:
+    name = _text(properties.get("name"))
+    house = _text(properties.get("housenumber"))
+    street = _text(properties.get("street"))
+    city = _text(
+        properties.get("city")
+        or properties.get("district")
+        or properties.get("county")
+    )
+    state = _state_abbrev(properties.get("state"))
+    postcode = _text(properties.get("postcode"))
+    street_line = " ".join(part for part in (house, street) if part)
+
+    locality_bits = [part for part in (city, state) if part]
+    locality = ", ".join(locality_bits)
+    if postcode:
+        locality = f"{locality} {postcode}".strip()
+
+    skipped = {part.casefold() for part in (city, street, street_line) if part}
+    parts: list[str] = []
+    if name and name.casefold() not in skipped:
+        parts.append(name)
+    if street_line and street_line.casefold() != name.casefold():
+        parts.append(street_line)
+    if locality:
+        parts.append(locality)
+    return ", ".join(parts)
+
+
 def _short_label(result: dict[str, Any], fallback: str) -> str:
     address = result.get("address") or {}
-    state = _state_code(address) or address.get("state")
+    state = _state_code(address) or _state_abbrev(address.get("state"))
     city = next(
         (
             address.get(key)
@@ -115,6 +248,7 @@ def _short_label(result: dict[str, Any], fallback: str) -> str:
     )
     road = address.get("road")
     house = address.get("house_number")
+    postcode = address.get("postcode")
     parts: list[str] = []
     if road:
         parts.append(" ".join(str(item) for item in (house, road) if item))
@@ -123,7 +257,10 @@ def _short_label(result: dict[str, Any], fallback: str) -> str:
     if state:
         parts.append(str(state))
     if parts:
-        return ", ".join(parts[:3])
+        label = ", ".join(parts[:3])
+        if postcode:
+            return f"{label} {postcode}"
+        return label
     display = result.get("display_name")
     if isinstance(display, str) and display:
         return ", ".join(display.split(",")[:3])
@@ -163,12 +300,16 @@ def _timezone_for(*, lat: float, lng: float, fallback: str) -> str:
 
 def _geocode(value: dict[str, Any], *, field: str) -> dict[str, Any]:
     if "lat" in value and "lng" in value:
-        fallback_timezone = _fallback_timezone(float(value["lat"]), float(value["lng"]))
+        lat = float(value["lat"])
+        lng = float(value["lng"])
+        if not _is_in_united_states(lat, lng):
+            raise _unsupported_country_error(field=field)
+        fallback_timezone = _fallback_timezone(lat, lng)
         return {
             "input": value["query"],
             "display_name": value["label"],
-            "lat": float(value["lat"]),
-            "lng": float(value["lng"]),
+            "lat": lat,
+            "lng": lng,
             "timezone": fallback_timezone,
         }
 
@@ -184,7 +325,6 @@ def _geocode(value: dict[str, Any], *, field: str) -> dict[str, Any]:
                 "q": query,
                 "format": "jsonv2",
                 "addressdetails": 1,
-                "countrycodes": "us",
                 "limit": 1,
             },
             timeout=12,
@@ -210,7 +350,7 @@ def _geocode(value: dict[str, Any], *, field: str) -> dict[str, Any]:
             field=field,
             message=(
                 f"We could not find that {field.replace('_', ' ')}. "
-                "Add a city, state, or ZIP code."
+                "Try a U.S. city, state, or ZIP code."
             ),
             status=422,
         )
@@ -227,6 +367,12 @@ def _geocode(value: dict[str, Any], *, field: str) -> dict[str, Any]:
             message="The location service returned an incomplete result. Please try again.",
             status=502,
         ) from error
+
+    country_code = address.get("country_code")
+    if not _is_us_country_code(country_code) and (
+        country_code or not _is_in_united_states(lat, lng)
+    ):
+        raise _unsupported_country_error(field=field)
 
     result = {
         "input": query,
@@ -291,6 +437,7 @@ def resolve_route(
     current_value: dict[str, Any],
     pickup_value: dict[str, Any],
     dropoff_value: dict[str, Any],
+    overview: str = "simplified",
 ) -> tuple[dict[str, dict[str, Any]], dict[str, Any], str]:
     resolved: dict[str, dict[str, Any]] = {}
     for index, (key, field, value) in enumerate(
@@ -316,12 +463,13 @@ def resolve_route(
         f"{resolved[key]['lng']},{resolved[key]['lat']}"
         for key in ("current", "pickup", "dropoff")
     )
+    osrm_overview = "full" if overview == "full" else "simplified"
     route_url = f"{OSRM_URL}/{quote(coordinates, safe=',;-.')}"
     try:
         payload = _get_json(
             route_url,
             params={
-                "overview": "simplified",
+                "overview": osrm_overview,
                 "geometries": "geojson",
                 "steps": "true",
                 "alternatives": "false",
@@ -397,6 +545,7 @@ def resolve_route(
     lats = [coordinate[1] for coordinate in geometry_coordinates]
     route = {
         "distance_meters": sum(leg["distance_meters"] for leg in legs),
+        "overview": osrm_overview,
         "geometry": {"type": "LineString", "coordinates": geometry_coordinates},
         "bbox": [min(lngs), min(lats), max(lngs), max(lats)],
         "legs": legs,
@@ -404,29 +553,37 @@ def resolve_route(
     return resolved, route, origin["timezone"]
 
 
-def suggest_locations(query: str, *, limit: int = 5) -> list[dict[str, Any]]:
+def suggest_locations(query: str, *, limit: int = 5) -> dict[str, Any]:
+    """Return U.S. suggestions and flag queries that only match outside the U.S."""
     cleaned = query.strip()
     if len(cleaned) < 3:
-        return []
+        return _empty_suggestions()
     cache_key = f"{cleaned.casefold()}::{limit}"
     if cache_key in _suggest_cache:
-        return [dict(item) for item in _suggest_cache[cache_key]]
+        cached = _suggest_cache[cache_key]
+        return {
+            "suggestions": [dict(item) for item in cached["suggestions"]],
+            "unsupported_country": bool(cached["unsupported_country"]),
+        }
 
     payload = _get_json(
         PHOTON_URL,
         params={
             "q": cleaned,
-            "limit": max(1, min(limit, 8)),
+            "limit": max(limit, min(limit * 2, 10)),
             "lang": "en",
         },
         timeout=8,
     )
     features = payload.get("features") if isinstance(payload, dict) else []
     if not isinstance(features, list):
-        return []
+        result = _empty_suggestions()
+        _suggest_cache[cache_key] = result
+        return _empty_suggestions()
 
     suggestions: list[dict[str, Any]] = []
     seen: set[str] = set()
+    saw_non_us = False
     for feature in features:
         if not isinstance(feature, dict):
             continue
@@ -441,33 +598,31 @@ def suggest_locations(query: str, *, limit: int = 5) -> list[dict[str, Any]]:
             and all(isinstance(value, (int, float)) for value in coordinates[:2])
         ):
             continue
-        label = ", ".join(
-            str(part).strip()
-            for part in (
-                properties.get("name"),
-                properties.get("city"),
-                properties.get("state"),
-            )
-            if part
-        ) or str(properties.get("name") or "").strip()
+        lat = float(coordinates[1])
+        lng = float(coordinates[0])
+        if not _photon_is_us(properties, lat, lng):
+            saw_non_us = True
+            continue
+        label = _photon_label(properties)
         if not label:
             continue
         dedupe = label.casefold()
         if dedupe in seen:
             continue
         seen.add(dedupe)
-        suggestions.append(
-            {
-                "label": label,
-                "lat": float(coordinates[1]),
-                "lng": float(coordinates[0]),
-            }
-        )
+        suggestions.append({"label": label, "lat": lat, "lng": lng})
         if len(suggestions) >= limit:
             break
 
-    _suggest_cache[cache_key] = suggestions
-    return [dict(item) for item in suggestions]
+    result = {
+        "suggestions": [dict(item) for item in suggestions],
+        "unsupported_country": bool(saw_non_us and not suggestions),
+    }
+    _suggest_cache[cache_key] = result
+    return {
+        "suggestions": [dict(item) for item in result["suggestions"]],
+        "unsupported_country": result["unsupported_country"],
+    }
 
 
 def to_scheduler_locations(

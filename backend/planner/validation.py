@@ -121,8 +121,25 @@ def validate_plan_request(payload: Any) -> dict[str, Any]:
             status=400,
         )
 
+    raw_overview = payload.get("route_overview")
+    if raw_overview is None or raw_overview == "":
+        overview = "simplified"
+    elif isinstance(raw_overview, str) and raw_overview.strip().casefold() in {
+        "simplified",
+        "full",
+    }:
+        overview = raw_overview.strip().casefold()
+    else:
+        raise PlannerError(
+            code="VALIDATION_ERROR",
+            field="route_overview",
+            message='route_overview must be "simplified" or "full".',
+            status=400,
+        )
+
     return {
         **locations,
         "current_cycle_used_minutes": round(cycle_hours * 60),
         "start_at": start_at,
+        "route_overview": overview,
     }

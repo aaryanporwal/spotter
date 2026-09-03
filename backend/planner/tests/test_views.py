@@ -68,14 +68,29 @@ class PlannerViewTests(SimpleTestCase):
 
     @patch("planner.views.suggest_locations")
     def test_suggest_location_returns_candidates(self, suggest) -> None:
-        suggest.return_value = [
-            {"label": "Dallas, TX", "lat": 32.7763, "lng": -96.7969},
-            {"label": "Dallas County, TX", "lat": 32.7, "lng": -96.8},
-        ]
+        suggest.return_value = {
+            "suggestions": [
+                {"label": "Dallas, TX", "lat": 32.7763, "lng": -96.7969},
+                {"label": "Dallas County, TX", "lat": 32.7, "lng": -96.8},
+            ],
+            "unsupported_country": False,
+        }
         response = self.client.get("/api/v1/locations/suggest/?q=dallas")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()["suggestions"]), 2)
+        payload = response.json()
+        self.assertEqual(len(payload["suggestions"]), 2)
+        self.assertFalse(payload["unsupported_country"])
+
+    @patch("planner.views.suggest_locations")
+    def test_suggest_location_flags_non_us_query(self, suggest) -> None:
+        suggest.return_value = {"suggestions": [], "unsupported_country": True}
+        response = self.client.get("/api/v1/locations/suggest/?q=mumbai")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["suggestions"], [])
+        self.assertTrue(payload["unsupported_country"])
 
     @patch("planner.views.resolve_route")
     def test_plan_endpoint_returns_route_schedule_and_logs(self, resolver) -> None:
@@ -100,9 +115,33 @@ class PlannerViewTests(SimpleTestCase):
         self.assertEqual(payload["summary"]["cycle_used_start_minutes"], 750)
         self.assertGreater(payload["summary"]["daily_log_count"], 0)
         self.assertEqual(payload["route"]["geometry"]["type"], "LineString")
+        self.assertEqual(payload["route"]["overview"], "simplified")
+        self.assertEqual(resolver.call_args.kwargs["overview"], "simplified")
         self.assertEqual(payload["assumptions"][0]["code"], "property_carrier_70_8")
         self.assertEqual(payload["warnings"][0]["code"], "STANDARD_ROAD_PROFILE")
         self.assertEqual(payload["timezone"], "America/Chicago")
+
+    @patch("planner.views.resolve_route")
+    def test_plan_endpoint_passes_full_route_overview(self, resolver) -> None:
+        full_route = {**self.route, "overview": "full"}
+        resolver.return_value = (self.resolved, full_route, "America/Chicago")
+        response = self.client.post(
+            "/api/v1/trips/plan/",
+            data=json.dumps(
+                {
+                    "current_location": "Dallas, TX",
+                    "pickup_location": "Fort Worth, TX",
+                    "dropoff_location": "Phoenix, AZ",
+                    "current_cycle_used_hours": 0,
+                    "route_overview": "full",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(resolver.call_args.kwargs["overview"], "full")
+        self.assertEqual(response.json()["route"]["overview"], "full")
 
     def test_plan_endpoint_returns_field_error(self) -> None:
         response = self.client.post(

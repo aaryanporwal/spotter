@@ -44,3 +44,43 @@ class RequestValidationTests(SimpleTestCase):
         )
 
         self.assertEqual(result["pickup_location"]["lat"], 32.75)
+
+    def test_defaults_to_simplified_route_overview(self) -> None:
+        result = validate_plan_request(
+            {
+                "current_location": "Dallas, TX",
+                "pickup_location": "Fort Worth, TX",
+                "dropoff_location": "Phoenix, AZ",
+                "current_cycle_used_hours": 0,
+            }
+        )
+
+        self.assertEqual(result["route_overview"], "simplified")
+
+    def test_accepts_full_route_overview(self) -> None:
+        result = validate_plan_request(
+            {
+                "current_location": "Dallas, TX",
+                "pickup_location": "Fort Worth, TX",
+                "dropoff_location": "Phoenix, AZ",
+                "current_cycle_used_hours": 0,
+                "route_overview": "full",
+            }
+        )
+
+        self.assertEqual(result["route_overview"], "full")
+
+    def test_rejects_unknown_route_overview(self) -> None:
+        with self.assertRaises(PlannerError) as context:
+            validate_plan_request(
+                {
+                    "current_location": "Dallas, TX",
+                    "pickup_location": "Fort Worth, TX",
+                    "dropoff_location": "Phoenix, AZ",
+                    "current_cycle_used_hours": 0,
+                    "route_overview": "detailed",
+                }
+            )
+
+        self.assertEqual(context.exception.field, "route_overview")
+        self.assertEqual(context.exception.status, 400)

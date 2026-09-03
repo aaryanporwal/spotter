@@ -71,14 +71,14 @@ def health(_request: HttpRequest) -> JsonResponse:
 def suggest_location(request: HttpRequest) -> JsonResponse:
     query = (request.GET.get("q") or "").strip()
     if len(query) < 3:
-        return JsonResponse({"suggestions": []})
+        return JsonResponse({"suggestions": [], "unsupported_country": False})
     try:
-        return JsonResponse({"suggestions": suggest_locations(query)})
+        return JsonResponse(suggest_locations(query))
     except PlannerError:
-        return JsonResponse({"suggestions": []})
+        return JsonResponse({"suggestions": [], "unsupported_country": False})
     except Exception:
         logger.exception("Unexpected location-suggestion error")
-        return JsonResponse({"suggestions": []})
+        return JsonResponse({"suggestions": [], "unsupported_country": False})
 
 
 @csrf_exempt
@@ -100,6 +100,7 @@ def plan_trip(request: HttpRequest) -> JsonResponse:
             current_value=request_data["current_location"],
             pickup_value=request_data["pickup_location"],
             dropoff_value=request_data["dropoff_location"],
+            overview=request_data["route_overview"],
         )
         current, pickup, dropoff = to_scheduler_locations(resolved)
         result = TripScheduler(
@@ -114,6 +115,7 @@ def plan_trip(request: HttpRequest) -> JsonResponse:
         result["timezone"] = log_timezone
         result["resolved_locations"] = resolved
         result["route"] = {
+            "overview": route.get("overview", "simplified"),
             "geometry": route["geometry"],
             "bbox": route["bbox"],
             "legs": [
