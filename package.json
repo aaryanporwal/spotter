@@ -6,15 +6,14 @@
     "frontend"
   ],
   "scripts": {
-    "build": "npm run build --workspace frontend",
-    "dev": "concurrently -n api,web -c blue,green \"uv run python backend/manage.py runserver 8000\" \"npm run dev --workspace frontend\"",
-    "test": "uv run python backend/manage.py test planner && npm run test --workspace frontend -- --run",
-    "lint": "uv run ruff check backend && npm run lint --workspace frontend",
-    "deploy": "npm run build && uv run pywrangler deploy"
+    "build": "bun run --cwd frontend build",
+    "dev": "concurrently -n api,web -c blue,green \"uv run python backend/manage.py runserver 8808\" \"bun run --cwd frontend dev\"",
+    "test": "uv run python backend/manage.py test planner && bun run --cwd frontend test -- --run",
+    "lint": "uv run ruff check backend && bun run --cwd frontend lint",
+    "deploy": "bun run build && uv run pywrangler deploy"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
     "wrangler": "^4.128.0"
   }
 }
-

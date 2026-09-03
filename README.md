@@ -10,16 +10,16 @@ Live: https://milemark-eld-planner.altaaryan.workers.dev
 
 ```sh
 uv sync
-npm install
-npm run dev
+bun install
+bun dev
 ```
 
-API: `http://127.0.0.1:8000`  
-Web: `http://127.0.0.1:5173` (proxies `/api` to Django)
+API: `http://127.0.0.1:8808`  
+Web: `http://127.0.0.1:5179` (proxies `/api` to Django)
 
 ```sh
-npm test
-npm run lint
+bun run test
+bun run lint
 ```
 
 ## Deploy
@@ -27,7 +27,7 @@ npm run lint
 Wrangler must already be logged in.
 
 ```sh
-npm run deploy
+bun run deploy
 ```
 
 That builds the frontend, then `uv run pywrangler deploy`.
