@@ -13,9 +13,9 @@ export function PlanLoading() {
       <Card className="w-full max-w-sm shadow-lg">
         <CardHeader className="items-center pb-3 text-center">
           <img
-            src="/logo.jpg"
+            src="/logo.png"
             alt=""
-            className="mb-3 size-11 animate-pulse rounded-[8px] object-cover shadow-sm"
+            className="mb-4 size-14 animate-pulse rounded-[12px] object-cover shadow-sm"
             aria-hidden="true"
           />
           <p className="font-semibold tracking-[-0.01em]">Building your trip</p>

@@ -120,7 +120,7 @@ export function DailyLogSheet({ log, index = 0 }: { log: DailyLog; index?: numbe
         </desc>
         <rect width={VIEW_WIDTH} height={VIEW_HEIGHT} fill="white" />
 
-        <g fill="currentColor" fontFamily="Geist, Arial, sans-serif">
+        <g fill="currentColor" fontFamily="Bricolage Grotesque, Arial, sans-serif">
           <text x="46" y="53" fontSize="31" fontWeight="700" letterSpacing="-1">
             DRIVER&apos;S DAILY LOG
           </text>
@@ -211,7 +211,7 @@ export function DailyLogSheet({ log, index = 0 }: { log: DailyLog; index?: numbe
                   x="1140"
                   y={GRID_Y + rowIndex * ROW_HEIGHT + 31}
                   textAnchor="end"
-                  fontFamily="Geist Mono, monospace"
+                  fontFamily="monospace"
                   fontSize="13"
                   fontWeight="650"
                 >
@@ -291,7 +291,7 @@ export function DailyLogSheet({ log, index = 0 }: { log: DailyLog; index?: numbe
             x="1140"
             y="430"
             textAnchor="end"
-            fontFamily="Geist Mono, monospace"
+            fontFamily="monospace"
             fontSize="12"
             fontWeight="650"
           >
@@ -317,7 +317,7 @@ export function DailyLogSheet({ log, index = 0 }: { log: DailyLog; index?: numbe
             return (
               <g key={`${remark.minute}-${remarkIndex}`}>
                 <circle cx={x} cy="456" r="4" fill="currentColor" />
-                <text x="190" y={listY} fontFamily="Geist Mono, monospace" fontSize="11" fontWeight="650">
+                <text x="190" y={listY} fontFamily="monospace" fontSize="11" fontWeight="650">
                   {minuteLabel(remark.minute)}
                 </text>
                 <text x="285" y={listY} fontSize="12" fontWeight="550">
@@ -336,22 +336,22 @@ export function DailyLogSheet({ log, index = 0 }: { log: DailyLog; index?: numbe
           <line x1="48" x2="1152" y1="655" y2="655" stroke="currentColor" strokeWidth="2" />
           <text x="48" y="682" fontSize="13" fontWeight="700">70 HOUR / 8 DAY RECAP</text>
           <text x="48" y="713" fontSize="10" fill="#737373">ON DUTY TODAY</text>
-          <text x="48" y="738" fontFamily="Geist Mono, monospace" fontSize="21" fontWeight="650">
+          <text x="48" y="738" fontFamily="monospace" fontSize="21" fontWeight="650">
             {hoursLabel(onDutyToday)} h
           </text>
           <line x1="245" x2="245" y1="675" y2="753" stroke="#d4d4d4" />
           <text x="275" y="713" fontSize="10" fill="#737373">CYCLE USED AT DAY END</text>
-          <text x="275" y="738" fontFamily="Geist Mono, monospace" fontSize="21" fontWeight="650">
+          <text x="275" y="738" fontFamily="monospace" fontSize="21" fontWeight="650">
             {hoursLabel(log.recap?.cycleUsedEndMinutes ?? 0)} h
           </text>
           <line x1="525" x2="525" y1="675" y2="753" stroke="#d4d4d4" />
           <text x="555" y="713" fontSize="10" fill="#737373">CYCLE AVAILABLE</text>
-          <text x="555" y="738" fontFamily="Geist Mono, monospace" fontSize="21" fontWeight="650">
+          <text x="555" y="738" fontFamily="monospace" fontSize="21" fontWeight="650">
             {hoursLabel(log.recap?.cycleRemainingMinutes ?? 0)} h
           </text>
           <line x1="790" x2="790" y1="675" y2="753" stroke="#d4d4d4" />
           <text x="820" y="713" fontSize="10" fill="#737373">TOTAL MILES DRIVING TODAY</text>
-          <text x="820" y="738" fontFamily="Geist Mono, monospace" fontSize="21" fontWeight="650">
+          <text x="820" y="738" fontFamily="monospace" fontSize="21" fontWeight="650">
             {Math.round(log.totalMiles).toLocaleString("en-US")}
           </text>
 

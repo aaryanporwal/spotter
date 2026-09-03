@@ -106,7 +106,7 @@ export default function App() {
   return (
     <div
       className={cn(
-        "bg-background text-foreground",
+        "text-foreground",
         plan ? "min-h-dvh" : "flex h-dvh flex-col overflow-hidden",
       )}
     >
@@ -119,9 +119,9 @@ export default function App() {
       <header className="no-print shrink-0 border-b border-border/80 bg-background/90 backdrop-blur-sm">
         <div className="mx-auto flex h-12 w-full max-w-[1200px] items-center justify-between px-4 sm:h-14 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <img src="/logo.jpg" alt="" className="h-6 w-6 rounded-[4px] object-cover" aria-hidden="true" />
-              <p className="text-sm font-semibold tracking-[-0.03em]">Milemark</p>
+            <div className="flex items-center gap-2.5">
+              <img src="/logo.png" alt="" className="h-8 w-8 rounded-lg object-cover" aria-hidden="true" />
+              <p className="text-xl font-bold tracking-[-0.03em]">Milemark</p>
             </div>
             <p className="hidden text-xs text-muted-foreground sm:block">
               HOS route & daily logs
