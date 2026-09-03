@@ -1,4 +1,3 @@
-import { Route } from "lucide-react"
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -13,9 +12,12 @@ export function PlanLoading() {
     >
       <Card className="w-full max-w-sm shadow-lg">
         <CardHeader className="items-center pb-3 text-center">
-          <div className="mb-2 grid size-11 place-items-center rounded-full bg-primary text-primary-foreground">
-            <Route className="size-5" />
-          </div>
+          <img
+            src="/logo.jpg"
+            alt=""
+            className="mb-3 size-11 animate-pulse rounded-[8px] object-cover shadow-sm"
+            aria-hidden="true"
+          />
           <p className="font-semibold tracking-[-0.01em]">Building your trip</p>
           <p className="text-sm text-muted-foreground">Routing stops, rest, and daily logs…</p>
         </CardHeader>

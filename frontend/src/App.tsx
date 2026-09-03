@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 
 import { PlanLoading } from "@/components/plan-loading"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { TripForm } from "@/components/trip-form"
 import { TripResults } from "@/components/trip-results"
 import { planRequestWithOverview, planTrip, TripPlanError } from "@/lib/api"
@@ -117,10 +118,16 @@ export default function App() {
       </a>
       <header className="no-print shrink-0 border-b border-border/80 bg-background/90 backdrop-blur-sm">
         <div className="mx-auto flex h-12 w-full max-w-[1200px] items-center justify-between px-4 sm:h-14 sm:px-6 lg:px-8">
-          <p className="text-sm font-semibold tracking-[-0.03em]">Milemark</p>
-          <p className="hidden text-xs text-muted-foreground sm:block">
-            HOS route & daily logs
-          </p>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <img src="/logo.jpg" alt="" className="h-6 w-6 rounded-[4px] object-cover" aria-hidden="true" />
+              <p className="text-sm font-semibold tracking-[-0.03em]">Milemark</p>
+            </div>
+            <p className="hidden text-xs text-muted-foreground sm:block">
+              HOS route & daily logs
+            </p>
+          </div>
+          <ThemeToggle />
         </div>
       </header>
       {plan ? (
