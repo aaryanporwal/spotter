@@ -35,3 +35,8 @@ bun run deploy
 ```
 
 That builds the frontend, then `uv run pywrangler deploy`.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
