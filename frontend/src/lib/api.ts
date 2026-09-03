@@ -3,11 +3,14 @@ import type {
   DailyLog,
   DutyEvent,
   DutyStatus,
+  LocationInput,
+  LocationSuggestResult,
   LocationSuggestion,
   LogRemark,
   LogSegment,
   ResolvedLocation,
   RouteLeg,
+  RouteOverview,
   RouteStep,
   StopType,
   TripFieldErrors,
@@ -352,6 +355,7 @@ export function normalizeTripPlan(value: unknown): TripPlan {
       ["timezone", "log_timezone"],
       dailyLogs[0]?.timezone ?? "UTC",
     ),
+    routeOverview: stringFrom(route, ["overview"]).toLowerCase() === "full" ? "full" : "simplified",
     routeCoordinates: normalizeCoordinates(route.geometry),
     routeLegs: routeLegsRaw.map(normalizeRouteLeg),
     routeSteps: array(route.steps).length
@@ -410,6 +414,44 @@ async function readError(response: Response): Promise<TripPlanError> {
   })
 }
 
+function locationWithResolved(
+  value: string | LocationInput,
+  resolved?: ResolvedLocation,
+): string | LocationInput {
+  if (!resolved) return value
+  const query = typeof value === "string" ? value : value.query || resolved.label
+  return {
+    query,
+    label: resolved.label || (typeof value === "string" ? value : value.label),
+    lat: resolved.latitude,
+    lng: resolved.longitude,
+  }
+}
+
+export function planRequestWithOverview(
+  request: TripPlanRequest,
+  plan: TripPlan,
+  overview: RouteOverview,
+): TripPlanRequest {
+  return {
+    current_location: locationWithResolved(
+      request.current_location,
+      plan.resolvedLocations?.current,
+    ),
+    pickup_location: locationWithResolved(
+      request.pickup_location,
+      plan.resolvedLocations?.pickup,
+    ),
+    dropoff_location: locationWithResolved(
+      request.dropoff_location,
+      plan.resolvedLocations?.dropoff,
+    ),
+    current_cycle_used_hours: request.current_cycle_used_hours,
+    start_at: plan.summary.startAt || request.start_at,
+    route_overview: overview,
+  }
+}
+
 export async function planTrip(
   request: TripPlanRequest,
   signal?: AbortSignal,
@@ -431,9 +473,9 @@ export async function planTrip(
 export async function fetchLocationSuggestions(
   query: string,
   signal?: AbortSignal,
-): Promise<LocationSuggestion[]> {
+): Promise<LocationSuggestResult> {
   const trimmed = query.trim()
-  if (trimmed.length < 3) return []
+  if (trimmed.length < 3) return { suggestions: [], unsupportedCountry: false }
   const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(
     /\/$/,
     "",
@@ -443,17 +485,25 @@ export async function fetchLocationSuggestions(
     headers: { Accept: "application/json" },
     signal,
   })
-  if (!response.ok) return []
-  const payload = (await response.json()) as { suggestions?: unknown[] }
-  if (!Array.isArray(payload.suggestions)) return []
-  return payload.suggestions
-    .map((item) => {
-      const source = record(item)
-      const label = stringFrom(source, ["label"])
-      const latitude = numberFrom(source, ["lat", "latitude"], Number.NaN)
-      const longitude = numberFrom(source, ["lng", "longitude"], Number.NaN)
-      if (!label || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
-      return { label, latitude, longitude }
-    })
-    .filter((item): item is LocationSuggestion => item !== null)
+  if (!response.ok) return { suggestions: [], unsupportedCountry: false }
+  const payload = (await response.json()) as {
+    suggestions?: unknown[]
+    unsupported_country?: unknown
+  }
+  if (!Array.isArray(payload.suggestions)) {
+    return { suggestions: [], unsupportedCountry: false }
+  }
+  return {
+    suggestions: payload.suggestions
+      .map((item) => {
+        const source = record(item)
+        const label = stringFrom(source, ["label"])
+        const latitude = numberFrom(source, ["lat", "latitude"], Number.NaN)
+        const longitude = numberFrom(source, ["lng", "longitude"], Number.NaN)
+        if (!label || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+        return { label, latitude, longitude }
+      })
+      .filter((item): item is LocationSuggestion => item !== null),
+    unsupportedCountry: payload.unsupported_country === true,
+  }
 }

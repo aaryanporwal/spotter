@@ -20,12 +20,15 @@ export interface LocationInput {
   lng: number
 }
 
+export type RouteOverview = "simplified" | "full"
+
 export interface TripPlanRequest {
   current_location: string | LocationInput
   pickup_location: string | LocationInput
   dropoff_location: string | LocationInput
   current_cycle_used_hours: number
   start_at?: string
+  route_overview?: RouteOverview
 }
 
 export interface Coordinates {
@@ -131,6 +134,7 @@ export interface DailyLog {
 export interface TripPlan {
   summary: PlanSummary
   timezone: string
+  routeOverview: RouteOverview
   routeCoordinates: [number, number][]
   routeLegs: RouteLeg[]
   routeSteps: RouteStep[]
@@ -169,6 +173,11 @@ export interface LocationSuggestion {
   label: string
   latitude: number
   longitude: number
+}
+
+export interface LocationSuggestResult {
+  suggestions: LocationSuggestion[]
+  unsupportedCountry: boolean
 }
 
 export type TripFieldErrors = Partial<Record<keyof TripFormFields, string>>

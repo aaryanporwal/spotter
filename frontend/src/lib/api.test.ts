@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { normalizeTripPlan } from "@/lib/api"
+import {
+  fetchLocationSuggestions,
+  normalizeTripPlan,
+  planRequestWithOverview,
+} from "@/lib/api"
 
 describe("normalizeTripPlan", () => {
   it("maps the backend snake_case contract into the UI model", () => {
@@ -73,10 +77,118 @@ describe("normalizeTripPlan", () => {
     expect(plan.summary.distanceMiles).toBeCloseTo(100)
     expect(plan.summary.cycleUsedStartHours).toBe(12.5)
     expect(plan.routeCoordinates[0]).toEqual([32.8, -96.8])
+    expect(plan.routeOverview).toBe("simplified")
     expect(plan.routeSteps[0]?.instruction).toBe("Head west")
     expect(plan.stops[0]?.type).toBe("start")
     expect(plan.dailyLogs[0]?.totalsMinutes.driving).toBe(120)
     expect(plan.assumptions[0]).toContain("Fresh 11-hour")
     expect(plan.warnings[0]).toContain("Planning estimates")
+  })
+
+  it("keeps a full overview flag from the route payload", () => {
+    const plan = normalizeTripPlan({
+      route: { overview: "full", geometry: { coordinates: [] } },
+    })
+    expect(plan.routeOverview).toBe("full")
+  })
+})
+
+describe("planRequestWithOverview", () => {
+  it("reuses resolved coordinates and the original start time", () => {
+    const plan = normalizeTripPlan({
+      summary: { start_at: "2026-09-03T13:00:00Z" },
+      resolved_locations: {
+        current: { display_name: "Dallas, TX", lat: 32.8, lng: -96.8 },
+        pickup: { display_name: "Fort Worth, TX", lat: 32.75, lng: -97.3 },
+        dropoff: { display_name: "Phoenix, AZ", lat: 33.45, lng: -112.1 },
+      },
+      route: { overview: "simplified", geometry: { coordinates: [] } },
+    })
+
+    expect(
+      planRequestWithOverview(
+        {
+          current_location: "Dallas, TX",
+          pickup_location: "Fort Worth, TX",
+          dropoff_location: "Phoenix, AZ",
+          current_cycle_used_hours: 12.5,
+        },
+        plan,
+        "full",
+      ),
+    ).toEqual({
+      current_location: {
+        query: "Dallas, TX",
+        label: "Dallas, TX",
+        lat: 32.8,
+        lng: -96.8,
+      },
+      pickup_location: {
+        query: "Fort Worth, TX",
+        label: "Fort Worth, TX",
+        lat: 32.75,
+        lng: -97.3,
+      },
+      dropoff_location: {
+        query: "Phoenix, AZ",
+        label: "Phoenix, AZ",
+        lat: 33.45,
+        lng: -112.1,
+      },
+      current_cycle_used_hours: 12.5,
+      start_at: "2026-09-03T13:00:00Z",
+      route_overview: "full",
+    })
+  })
+})
+
+describe("fetchLocationSuggestions", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("maps US suggestions from the suggest endpoint", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          suggestions: [
+            {
+              label: "8008 Cedar Springs Road, Dallas, TX 75235",
+              lat: 32.8471,
+              lng: -96.8518,
+            },
+          ],
+          unsupported_country: false,
+        }),
+      }),
+    )
+
+    await expect(fetchLocationSuggestions("dallas")).resolves.toEqual({
+      suggestions: [
+        {
+          label: "8008 Cedar Springs Road, Dallas, TX 75235",
+          latitude: 32.8471,
+          longitude: -96.8518,
+        },
+      ],
+      unsupportedCountry: false,
+    })
+  })
+
+  it("surfaces non-U.S. queries without fake U.S. matches", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ suggestions: [], unsupported_country: true }),
+      }),
+    )
+
+    await expect(fetchLocationSuggestions("mumbai")).resolves.toEqual({
+      suggestions: [],
+      unsupportedCountry: true,
+    })
   })
 })

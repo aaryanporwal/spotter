@@ -74,6 +74,8 @@ const locationFields = [
 ] as const
 type LocationFieldKey = (typeof locationFields)[number]["key"]
 
+const US_ADDRESSES_ONLY = "We only support U.S. addresses."
+
 function isLocationField(key: keyof TripFormFields): key is LocationFieldKey {
   return key !== "current_cycle_used_hours"
 }
@@ -173,6 +175,9 @@ export function TripForm({
   const [isSuggesting, setIsSuggesting] = useState<
     Partial<Record<LocationFieldKey, boolean>>
   >({})
+  const [unsupportedCountry, setUnsupportedCountry] = useState<
+    Partial<Record<LocationFieldKey, boolean>>
+  >({})
   const [openSuggestionsFor, setOpenSuggestionsFor] =
     useState<LocationFieldKey | null>(null)
 
@@ -208,6 +213,7 @@ export function TripForm({
     setSelectedSuggestions((current) => ({ ...current, [key]: undefined }))
     setOpenSuggestionsFor(key)
     setSuggestions((current) => ({ ...current, [key]: [] }))
+    setUnsupportedCountry((current) => ({ ...current, [key]: false }))
     const timerId = debounceRef.current[key]
     if (timerId) window.clearTimeout(timerId)
     abortRef.current[key]?.abort()
@@ -223,13 +229,19 @@ export function TripForm({
       abortRef.current[key] = controller
       setIsSuggesting((current) => ({ ...current, [key]: true }))
       try {
-        const nextSuggestions = await fetchLocationSuggestions(
-          query,
-          controller.signal,
-        )
-        setSuggestions((current) => ({ ...current, [key]: nextSuggestions }))
+        const result = await fetchLocationSuggestions(query, controller.signal)
+        if (controller.signal.aborted) return
+        setSuggestions((current) => ({ ...current, [key]: result.suggestions }))
+        setUnsupportedCountry((current) => ({
+          ...current,
+          [key]: result.unsupportedCountry,
+        }))
+        if (result.unsupportedCountry) {
+          setLocalErrors((current) => ({ ...current, [key]: US_ADDRESSES_ONLY }))
+        }
       } catch {
         setSuggestions((current) => ({ ...current, [key]: [] }))
+        setUnsupportedCountry((current) => ({ ...current, [key]: false }))
       } finally {
         setIsSuggesting((current) => ({ ...current, [key]: false }))
       }
@@ -242,6 +254,7 @@ export function TripForm({
     setLocalErrors((current) => ({ ...current, [key]: undefined }))
     setSelectedSuggestions((current) => ({ ...current, [key]: suggestion }))
     setSuggestions((current) => ({ ...current, [key]: [] }))
+    setUnsupportedCountry((current) => ({ ...current, [key]: false }))
     setOpenSuggestionsFor(null)
     onChange(nextValues)
   }
@@ -249,6 +262,11 @@ export function TripForm({
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const errors = validate(values)
+    for (const field of locationFields) {
+      if (unsupportedCountry[field.key] && !selectedSuggestions[field.key]) {
+        errors[field.key] = US_ADDRESSES_ONLY
+      }
+    }
     setLocalErrors(errors)
     if (Object.keys(errors).length) {
       const firstInvalid = Object.keys(errors)[0]
@@ -287,10 +305,6 @@ export function TripForm({
   return (
     <main id="main-content" className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-12 sm:px-6 sm:pt-16">
       <div className="mb-8 max-w-xl">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-xs">
-          <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-          Property-carrying · 70-hour / 8-day cycle
-        </div>
         <h1 className="text-balance text-[2rem] font-semibold leading-[1.08] tracking-[-0.04em] text-foreground sm:text-[2.65rem]">
           Plan the drive. Know when to stop.
         </h1>
@@ -302,7 +316,9 @@ export function TripForm({
       <Card className="overflow-hidden">
         <CardHeader className="border-b border-border bg-muted/30">
           <CardTitle>Trip details</CardTitle>
-          <CardDescription>Use a city, address, or recognizable place for each stop.</CardDescription>
+          <CardDescription>
+            Use a U.S. city, address, or recognizable place for each stop.
+          </CardDescription>
         </CardHeader>
         <CardContent className="pt-5 md:pt-6">
           <form className="space-y-5" onSubmit={submit} noValidate>
@@ -320,7 +336,11 @@ export function TripForm({
                 id={key}
                 label={label}
                 hint={hint}
-                error={errors[key]}
+                error={
+                  openSuggestionsFor === key && unsupportedCountry[key]
+                    ? undefined
+                    : errors[key]
+                }
                 icon={<Icon className="size-4" />}
               >
                 <div className="relative">
@@ -345,16 +365,22 @@ export function TripForm({
                   {selectedSuggestions[key] ? (
                     <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                       <Check className="size-3" />
-                      Using verified coordinates
+                      Using this address
                     </p>
                   ) : null}
                   {openSuggestionsFor === key &&
                   !isLoading &&
-                  (isSuggesting[key] || suggestions[key].length > 0) ? (
+                  (isSuggesting[key] ||
+                    suggestions[key].length > 0 ||
+                    unsupportedCountry[key]) ? (
                     <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border bg-card shadow-card">
                       {isSuggesting[key] ? (
                         <p className="px-3 py-2 text-xs text-muted-foreground">
                           Searching addresses...
+                        </p>
+                      ) : unsupportedCountry[key] && suggestions[key].length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-destructive">
+                          {US_ADDRESSES_ONLY}
                         </p>
                       ) : (
                         <ul>
@@ -362,7 +388,7 @@ export function TripForm({
                             <li key={`${suggestion.label}-${suggestion.latitude}`}>
                               <button
                                 type="button"
-                                className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-xs transition-colors hover:bg-muted"
+                                className="flex w-full px-3 py-2 text-left text-xs transition-colors hover:bg-muted"
                                 onMouseDown={(event) => {
                                   event.preventDefault()
                                   if (closeMenuRef.current) {
@@ -372,10 +398,6 @@ export function TripForm({
                                 }}
                               >
                                 <span className="line-clamp-2">{suggestion.label}</span>
-                                <span className="shrink-0 text-[10px] text-muted-foreground">
-                                  {suggestion.latitude.toFixed(4)},{" "}
-                                  {suggestion.longitude.toFixed(4)}
-                                </span>
                               </button>
                             </li>
                           ))}
