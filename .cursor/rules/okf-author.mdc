@@ -1,0 +1,17 @@
+---
+description: Authoring rules for the Google OKF bundle in knowledge/
+globs: knowledge/**
+alwaysApply: false
+---
+
+# OKF authoring
+
+When adding or editing `knowledge/`:
+
+- `type` is required on every concept. `index.md` / `log.md` are reserved.
+- One concern per file. Frontmatter `description` must be enough to skip the body.
+- Record only facts that do not already live in source, tests, config, or `README.md`.
+- Point at files with bundle-relative links. Do not paste constants, schemas, or command blocks.
+- On a code change that invalidates a concept: update it, or set `status: deprecated`, in the same change.
+- Add a one-line entry to `knowledge/log.md`. List new concepts in `knowledge/index.md`.
+- Set `stale_after` on anything that tracks repo layout or product couplings.

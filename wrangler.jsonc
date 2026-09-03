@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "milemark-eld-planner",
+  "account_id": "7b83ddfb04430d53a2abb78b8a2be719",
   "main": "backend/worker.py",
   "compatibility_date": "2026-09-03",
   "compatibility_flags": ["python_workers"],

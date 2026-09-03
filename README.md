@@ -6,6 +6,8 @@ Django API + React (Vite, shadcn/Geist). Hosted as a Cloudflare Worker: static f
 
 Live: https://milemark-eld-planner.altaaryan.workers.dev
 
+Agent knowledge (OKF): [knowledge/index.md](knowledge/index.md) — catalog only; do not dump the folder.
+
 ## Run locally
 
 ```sh
@@ -24,7 +26,9 @@ bun run lint
 
 ## Deploy
 
-Wrangler must already be logged in.
+Pushes to `main` deploy via GitHub Actions. Add a `CLOUDFLARE_API_TOKEN` repo secret (Cloudflare dashboard → My Profile → API Tokens → Create Token → **Edit Cloudflare Workers**).
+
+To deploy locally, Wrangler must already be logged in:
 
 ```sh
 bun run deploy
