@@ -20,7 +20,7 @@ Only the coupling is the knowledge. Read the named file for the actual values.
 - Git folder is `spotter`; product and packages are `milemark`. Do not rename one to match the other.
 - JSON over the wire is snake_case. CamelCase exists only after `normalizeTripPlan` in `frontend/src/lib/api.ts`. Do not add camelCase to Django or a second client schema.
 - The browser calls `/api/v1/...`. `planner/urls.py` also keeps unversioned aliases. Do not add a third prefix.
-- One Django app, two hosts: `manage.py runserver` and `backend/worker.py`. Dummy DB — no models, auth, sessions, or `django.contrib.*` already excluded in `wrangler.jsonc`.
+- One Django app, two hosts: `manage.py runserver` and `backend/worker.py`. Dummy DB - no models, auth, sessions, or `django.contrib.*` already excluded in `wrangler.jsonc`.
 - First plan uses `route_overview=simplified`. `full` is a second request from `App.tsx`. Do not default OSRM to full.
 - HOS limits in `scheduler.py`, `ASSUMPTIONS` in `views.py`, and the trip-form helper line must change together.
 - No breaking API or UI changes unless explicitly requested.

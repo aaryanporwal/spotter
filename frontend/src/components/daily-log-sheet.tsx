@@ -53,7 +53,7 @@ function dutyPath(segments: LogSegment[]) {
 
 function formatDate(value: string) {
   const date = new Date(`${value}T00:00:00Z`)
-  if (Number.isNaN(date.getTime())) return { month: "—", day: "—", year: "—", full: value }
+  if (Number.isNaN(date.getTime())) return { month: " - ", day: " - ", year: " - ", full: value }
   return {
     month: String(date.getUTCMonth() + 1).padStart(2, "0"),
     day: String(date.getUTCDate()).padStart(2, "0"),

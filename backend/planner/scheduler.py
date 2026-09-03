@@ -360,7 +360,7 @@ class TripScheduler:
             distance_meters=0,
             start_label=location,
             end_label=location,
-            reason="Fuel — verify station",
+            reason="Fuel - verify station",
             start_coordinate=coordinate,
             end_coordinate=coordinate,
         )

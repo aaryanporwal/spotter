@@ -44,7 +44,7 @@ interface TripResultsProps {
 }
 
 function formatDuration(minutes: number) {
-  if (!Number.isFinite(minutes) || minutes <= 0) return "—"
+  if (!Number.isFinite(minutes) || minutes <= 0) return " - "
   const rounded = Math.round(minutes)
   const days = Math.floor(rounded / 1440)
   const hours = Math.floor((rounded % 1440) / 60)
@@ -57,7 +57,7 @@ function formatDuration(minutes: number) {
 }
 
 function formatDateTime(value: string, timezone?: string) {
-  if (!value) return "—"
+  if (!value) return " - "
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   const options: Intl.DateTimeFormatOptions = {

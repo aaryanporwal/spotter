@@ -488,7 +488,7 @@ export function TripForm({
                 <FormField
                   id="current_cycle_used_hours"
                   label="Current cycle used"
-                  hint="0–70 hours"
+                  hint="0-70 hours"
                   error={errors.current_cycle_used_hours}
                   icon={<Clock3 className="size-4" />}
                 >

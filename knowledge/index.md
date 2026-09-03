@@ -8,5 +8,5 @@ Pointers only. Open a linked file only if this task needs it. Do not read the re
 
 # Orient
 
-* [Source map](map.md) — which files to open for a task; no file contents
-* [Invariants](invariants.md) — cross-file couplings that a single source file does not state
+* [Source map](map.md) - which files to open for a task; no file contents
+* [Invariants](invariants.md) - cross-file couplings that a single source file does not state
