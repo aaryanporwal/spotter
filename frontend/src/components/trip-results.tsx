@@ -294,11 +294,32 @@ export function TripResults({
       </div>
 
       {plan.warnings.length ? (
-        <Alert variant="info" className="no-print mb-5">
-          <Info />
-          <AlertTitle>Planning estimate</AlertTitle>
-          <AlertDescription>{plan.warnings.join(" ")}</AlertDescription>
-        </Alert>
+        <div className="no-print mb-5 rounded-lg border border-border/70 bg-muted/30 px-3 sm:px-4">
+          <Accordion type="single" collapsible>
+            <AccordionItem value="planning-warnings" className="border-0">
+              <AccordionTrigger className="min-h-0 gap-3 py-2.5 font-normal hover:text-foreground">
+                <span className="flex min-w-0 items-start gap-2.5">
+                  <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <span className="text-left text-sm leading-5 text-muted-foreground">
+                    <span className="font-medium text-foreground">Planning estimate</span>
+                    <span> — </span>
+                    Verify the route and record actual activity in your ELD.
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="pb-3 pl-6 sm:pl-7">
+                <ul className="space-y-1.5 text-sm leading-5 text-muted-foreground">
+                  {plan.warnings.map((warning, index) => (
+                    <li key={`${warning}-${index}`} className="flex gap-2">
+                      <span className="mt-2 size-1 shrink-0 rounded-full bg-current" />
+                      <span>{warning}</span>
+                    </li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
       ) : null}
 
       <Card className="no-print mb-6 overflow-hidden">
