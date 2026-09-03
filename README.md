@@ -6,7 +6,7 @@ Django API + React (Vite, shadcn/Geist). Hosted as a Cloudflare Worker: static f
 
 Live: https://milemark-eld-planner.altaaryan.workers.dev
 
-Agent knowledge (OKF): [knowledge/index.md](knowledge/index.md) - catalog only; do not dump the folder.
+Agent knowledge (Google OKF): [knowledge/index.md](knowledge/index.md)
 
 ## Run locally
 
