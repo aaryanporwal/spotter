@@ -37,6 +37,9 @@ import type { TripFormFields, TripPlan } from "@/types/trip"
 interface TripResultsProps {
   plan: TripPlan
   request: TripFormFields
+  isUpgradingRoute?: boolean
+  routeUpgradeError?: string
+  onShowExactRoute?: () => void
   onEdit: () => void
 }
 
@@ -148,11 +151,28 @@ function Directions({ plan }: { plan: TripPlan }) {
   )
 }
 
-function RouteOverview({ plan }: { plan: TripPlan }) {
+function RouteOverview({
+  plan,
+  isUpgradingRoute,
+  routeUpgradeError,
+  onShowExactRoute,
+}: {
+  plan: TripPlan
+  isUpgradingRoute?: boolean
+  routeUpgradeError?: string
+  onShowExactRoute?: () => void
+}) {
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.85fr)]">
       <div className="min-w-0 space-y-5">
-        <RouteMap coordinates={plan.routeCoordinates} stops={plan.stops} />
+        <RouteMap
+          coordinates={plan.routeCoordinates}
+          stops={plan.stops}
+          routeOverview={plan.routeOverview}
+          isUpgrading={isUpgradingRoute}
+          upgradeError={routeUpgradeError}
+          onShowExactRoute={plan.routeOverview === "full" ? undefined : onShowExactRoute}
+        />
         <Directions plan={plan} />
       </div>
 
@@ -228,7 +248,14 @@ function DailyLogs({ plan }: { plan: TripPlan }) {
   )
 }
 
-export function TripResults({ plan, request, onEdit }: TripResultsProps) {
+export function TripResults({
+  plan,
+  request,
+  isUpgradingRoute,
+  routeUpgradeError,
+  onShowExactRoute,
+  onEdit,
+}: TripResultsProps) {
   const distance = `${Math.round(plan.summary.distanceMiles).toLocaleString("en-US")} mi`
   const cycleLeft = Math.max(0, plan.summary.cycleRemainingMinutes)
 
@@ -311,7 +338,12 @@ export function TripResults({ plan, request, onEdit }: TripResultsProps) {
           ) : null}
         </div>
         <TabsContent value="route">
-          <RouteOverview plan={plan} />
+          <RouteOverview
+            plan={plan}
+            isUpgradingRoute={isUpgradingRoute}
+            routeUpgradeError={routeUpgradeError}
+            onShowExactRoute={onShowExactRoute}
+          />
         </TabsContent>
         <TabsContent value="logs">
           <DailyLogs plan={plan} />

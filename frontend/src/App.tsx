@@ -1,9 +1,9 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { PlanLoading } from "@/components/plan-loading"
 import { TripForm } from "@/components/trip-form"
 import { TripResults } from "@/components/trip-results"
-import { planTrip, TripPlanError } from "@/lib/api"
+import { planRequestWithOverview, planTrip, TripPlanError } from "@/lib/api"
 import type {
   TripFieldErrors,
   TripFormFields,
@@ -18,26 +18,48 @@ const emptyRequest: TripFormFields = {
   current_cycle_used_hours: 0,
 }
 
+function isAbortError(error: unknown) {
+  return error instanceof DOMException
+    ? error.name === "AbortError"
+    : error instanceof Error && error.name === "AbortError"
+}
+
 export default function App() {
   const [request, setRequest] = useState<TripFormFields>(emptyRequest)
+  const [planRequest, setPlanRequest] = useState<TripPlanRequest | null>(null)
   const [plan, setPlan] = useState<TripPlan | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isUpgradingRoute, setIsUpgradingRoute] = useState(false)
+  const [routeUpgradeError, setRouteUpgradeError] = useState<string>()
   const [errorMessage, setErrorMessage] = useState<string>()
   const [fieldErrors, setFieldErrors] = useState<TripFieldErrors>({})
+  const planAbortRef = useRef<AbortController | null>(null)
+
+  const abortInFlight = () => {
+    planAbortRef.current?.abort()
+    planAbortRef.current = null
+  }
 
   const submit = async (payload: {
     values: TripFormFields
     request: TripPlanRequest
   }) => {
-    const { values, request: planRequest } = payload
+    const { values, request: nextRequest } = payload
+    abortInFlight()
+    const controller = new AbortController()
+    planAbortRef.current = controller
     setRequest(values)
+    setPlanRequest(nextRequest)
     setIsLoading(true)
+    setIsUpgradingRoute(false)
+    setRouteUpgradeError(undefined)
     setErrorMessage(undefined)
     setFieldErrors({})
     try {
-      const nextPlan = await planTrip(planRequest)
+      const nextPlan = await planTrip(nextRequest, controller.signal)
       setPlan(nextPlan)
     } catch (error) {
+      if (isAbortError(error)) return
       if (error instanceof TripPlanError) {
         setErrorMessage(error.message)
         setFieldErrors(error.fields)
@@ -45,7 +67,37 @@ export default function App() {
         setErrorMessage("We couldn’t build this trip. Check the locations and try again.")
       }
     } finally {
+      if (planAbortRef.current === controller) planAbortRef.current = null
       setIsLoading(false)
+    }
+  }
+
+  const showExactRoute = async () => {
+    if (!plan || !planRequest || isUpgradingRoute) return
+    abortInFlight()
+    const controller = new AbortController()
+    planAbortRef.current = controller
+    setIsUpgradingRoute(true)
+    setRouteUpgradeError(undefined)
+    try {
+      const nextPlan = await planTrip(
+        planRequestWithOverview(planRequest, plan, "full"),
+        controller.signal,
+      )
+      setPlan(nextPlan)
+      setPlanRequest((current) =>
+        current ? { ...current, route_overview: "full" } : current,
+      )
+    } catch (error) {
+      if (isAbortError(error)) return
+      setRouteUpgradeError(
+        error instanceof TripPlanError
+          ? error.message
+          : "Couldn’t load the exact route.",
+      )
+    } finally {
+      if (planAbortRef.current === controller) planAbortRef.current = null
+      setIsUpgradingRoute(false)
     }
   }
 
@@ -69,7 +121,13 @@ export default function App() {
         <TripResults
           plan={plan}
           request={request}
+          isUpgradingRoute={isUpgradingRoute}
+          routeUpgradeError={routeUpgradeError}
+          onShowExactRoute={showExactRoute}
           onEdit={() => {
+            abortInFlight()
+            setIsUpgradingRoute(false)
+            setRouteUpgradeError(undefined)
             setPlan(null)
             window.scrollTo({ top: 0, behavior: "auto" })
           }}
