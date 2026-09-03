@@ -9,6 +9,7 @@ from .errors import PlannerError
 from .scheduler import METER_PER_MILE, Location
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+PHOTON_URL = "https://photon.komoot.io/api"
 OSRM_URL = "https://routing.openstreetmap.de/routed-car/route/v1/driving"
 TIMEZONE_URL = "https://timeapi.io/api/timezone/coordinate"
 REQUEST_HEADERS = {
@@ -18,6 +19,7 @@ REQUEST_HEADERS = {
 }
 
 _geocode_cache: dict[str, dict[str, Any]] = {}
+_suggest_cache: dict[str, list[dict[str, Any]]] = {}
 
 
 def _on_workers() -> bool:
@@ -400,6 +402,72 @@ def resolve_route(
         "legs": legs,
     }
     return resolved, route, origin["timezone"]
+
+
+def suggest_locations(query: str, *, limit: int = 5) -> list[dict[str, Any]]:
+    cleaned = query.strip()
+    if len(cleaned) < 3:
+        return []
+    cache_key = f"{cleaned.casefold()}::{limit}"
+    if cache_key in _suggest_cache:
+        return [dict(item) for item in _suggest_cache[cache_key]]
+
+    payload = _get_json(
+        PHOTON_URL,
+        params={
+            "q": cleaned,
+            "limit": max(1, min(limit, 8)),
+            "lang": "en",
+        },
+        timeout=8,
+    )
+    features = payload.get("features") if isinstance(payload, dict) else []
+    if not isinstance(features, list):
+        return []
+
+    suggestions: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for feature in features:
+        if not isinstance(feature, dict):
+            continue
+        properties = feature.get("properties")
+        geometry = feature.get("geometry")
+        if not isinstance(properties, dict) or not isinstance(geometry, dict):
+            continue
+        coordinates = geometry.get("coordinates")
+        if not (
+            isinstance(coordinates, list)
+            and len(coordinates) >= 2
+            and all(isinstance(value, (int, float)) for value in coordinates[:2])
+        ):
+            continue
+        label = ", ".join(
+            str(part).strip()
+            for part in (
+                properties.get("name"),
+                properties.get("city"),
+                properties.get("state"),
+            )
+            if part
+        ) or str(properties.get("name") or "").strip()
+        if not label:
+            continue
+        dedupe = label.casefold()
+        if dedupe in seen:
+            continue
+        seen.add(dedupe)
+        suggestions.append(
+            {
+                "label": label,
+                "lat": float(coordinates[1]),
+                "lng": float(coordinates[0]),
+            }
+        )
+        if len(suggestions) >= limit:
+            break
+
+    _suggest_cache[cache_key] = suggestions
+    return [dict(item) for item in suggestions]
 
 
 def to_scheduler_locations(

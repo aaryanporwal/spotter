@@ -4,7 +4,12 @@ import { PlanLoading } from "@/components/plan-loading"
 import { TripForm } from "@/components/trip-form"
 import { TripResults } from "@/components/trip-results"
 import { planTrip, TripPlanError } from "@/lib/api"
-import type { TripFieldErrors, TripFormFields, TripPlan } from "@/types/trip"
+import type {
+  TripFieldErrors,
+  TripFormFields,
+  TripPlan,
+  TripPlanRequest,
+} from "@/types/trip"
 
 const emptyRequest: TripFormFields = {
   current_location: "",
@@ -20,13 +25,17 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<string>()
   const [fieldErrors, setFieldErrors] = useState<TripFieldErrors>({})
 
-  const submit = async (values: TripFormFields) => {
+  const submit = async (payload: {
+    values: TripFormFields
+    request: TripPlanRequest
+  }) => {
+    const { values, request: planRequest } = payload
     setRequest(values)
     setIsLoading(true)
     setErrorMessage(undefined)
     setFieldErrors({})
     try {
-      const nextPlan = await planTrip(values)
+      const nextPlan = await planTrip(planRequest)
       setPlan(nextPlan)
     } catch (error) {
       if (error instanceof TripPlanError) {

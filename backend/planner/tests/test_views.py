@@ -66,6 +66,17 @@ class PlannerViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["stack"], "django")
 
+    @patch("planner.views.suggest_locations")
+    def test_suggest_location_returns_candidates(self, suggest) -> None:
+        suggest.return_value = [
+            {"label": "Dallas, TX", "lat": 32.7763, "lng": -96.7969},
+            {"label": "Dallas County, TX", "lat": 32.7, "lng": -96.8},
+        ]
+        response = self.client.get("/api/v1/locations/suggest/?q=dallas")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["suggestions"]), 2)
+
     @patch("planner.views.resolve_route")
     def test_plan_endpoint_returns_route_schedule_and_logs(self, resolver) -> None:
         resolver.return_value = (self.resolved, self.route, "America/Chicago")

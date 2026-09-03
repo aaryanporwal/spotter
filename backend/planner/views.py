@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from .errors import PlannerError
-from .routing import resolve_route, to_scheduler_locations
+from .routing import resolve_route, suggest_locations, to_scheduler_locations
 from .scheduler import TripScheduler
 from .validation import validate_plan_request
 
@@ -65,6 +65,20 @@ def health(_request: HttpRequest) -> JsonResponse:
             "stack": "django",
         }
     )
+
+
+@require_GET
+def suggest_location(request: HttpRequest) -> JsonResponse:
+    query = (request.GET.get("q") or "").strip()
+    if len(query) < 3:
+        return JsonResponse({"suggestions": []})
+    try:
+        return JsonResponse({"suggestions": suggest_locations(query)})
+    except PlannerError:
+        return JsonResponse({"suggestions": []})
+    except Exception:
+        logger.exception("Unexpected location-suggestion error")
+        return JsonResponse({"suggestions": []})
 
 
 @csrf_exempt

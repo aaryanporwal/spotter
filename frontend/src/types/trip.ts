@@ -13,10 +13,17 @@ export type StopType =
   | "cycle_restart"
   | "dropoff"
 
+export interface LocationInput {
+  query: string
+  label: string
+  lat: number
+  lng: number
+}
+
 export interface TripPlanRequest {
-  current_location: string
-  pickup_location: string
-  dropoff_location: string
+  current_location: string | LocationInput
+  pickup_location: string | LocationInput
+  dropoff_location: string | LocationInput
   current_cycle_used_hours: number
   start_at?: string
 }
@@ -151,6 +158,17 @@ export interface ApiErrorEnvelope {
   detail?: string
 }
 
-export type TripFormFields = Omit<TripPlanRequest, "start_at">
+export interface TripFormFields {
+  current_location: string
+  pickup_location: string
+  dropoff_location: string
+  current_cycle_used_hours: number
+}
+
+export interface LocationSuggestion {
+  label: string
+  latitude: number
+  longitude: number
+}
 
 export type TripFieldErrors = Partial<Record<keyof TripFormFields, string>>

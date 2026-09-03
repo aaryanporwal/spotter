@@ -3,6 +3,7 @@ import type {
   DailyLog,
   DutyEvent,
   DutyStatus,
+  LocationSuggestion,
   LogRemark,
   LogSegment,
   ResolvedLocation,
@@ -425,4 +426,34 @@ export async function planTrip(
   })
   if (!response.ok) throw await readError(response)
   return normalizeTripPlan(await response.json())
+}
+
+export async function fetchLocationSuggestions(
+  query: string,
+  signal?: AbortSignal,
+): Promise<LocationSuggestion[]> {
+  const trimmed = query.trim()
+  if (trimmed.length < 3) return []
+  const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(
+    /\/$/,
+    "",
+  )
+  const search = new URLSearchParams({ q: trimmed })
+  const response = await fetch(`${apiBase ?? ""}/api/v1/locations/suggest/?${search}`, {
+    headers: { Accept: "application/json" },
+    signal,
+  })
+  if (!response.ok) return []
+  const payload = (await response.json()) as { suggestions?: unknown[] }
+  if (!Array.isArray(payload.suggestions)) return []
+  return payload.suggestions
+    .map((item) => {
+      const source = record(item)
+      const label = stringFrom(source, ["label"])
+      const latitude = numberFrom(source, ["lat", "latitude"], Number.NaN)
+      const longitude = numberFrom(source, ["lng", "longitude"], Number.NaN)
+      if (!label || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+      return { label, latitude, longitude }
+    })
+    .filter((item): item is LocationSuggestion => item !== null)
 }

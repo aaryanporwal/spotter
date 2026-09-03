@@ -1,6 +1,13 @@
-import { useState, type FormEvent, type ReactNode } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react"
 import {
   ArrowRight,
+  Check,
   Clock3,
   Flag,
   LoaderCircle,
@@ -20,8 +27,15 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { fetchLocationSuggestions } from "@/lib/api"
 import { cn } from "@/lib/utils"
-import type { TripFieldErrors, TripFormFields } from "@/types/trip"
+import type {
+  LocationInput,
+  LocationSuggestion,
+  TripFieldErrors,
+  TripFormFields,
+  TripPlanRequest,
+} from "@/types/trip"
 
 interface TripFormProps {
   initialValues: TripFormFields
@@ -29,7 +43,7 @@ interface TripFormProps {
   errorMessage?: string
   isLoading: boolean
   onChange: (values: TripFormFields) => void
-  onSubmit: (values: TripFormFields) => void
+  onSubmit: (payload: { values: TripFormFields; request: TripPlanRequest }) => void
 }
 
 const locationFields = [
@@ -58,6 +72,29 @@ const locationFields = [
     autoComplete: "off",
   },
 ] as const
+type LocationFieldKey = (typeof locationFields)[number]["key"]
+
+function isLocationField(key: keyof TripFormFields): key is LocationFieldKey {
+  return key !== "current_cycle_used_hours"
+}
+
+function toLocationInput(
+  typed: string,
+  selected?: LocationSuggestion,
+): string | LocationInput {
+  if (
+    selected &&
+    selected.label.trim().toLowerCase() === typed.trim().toLowerCase()
+  ) {
+    return {
+      query: typed,
+      label: selected.label,
+      lat: selected.latitude,
+      lng: selected.longitude,
+    }
+  }
+  return typed
+}
 
 function validate(values: TripFormFields): TripFieldErrors {
   const errors: TripFieldErrors = {}
@@ -123,6 +160,40 @@ export function TripForm({
 }: TripFormProps) {
   const [values, setValues] = useState<TripFormFields>(initialValues)
   const [localErrors, setLocalErrors] = useState<TripFieldErrors>({})
+  const [suggestions, setSuggestions] = useState<
+    Record<LocationFieldKey, LocationSuggestion[]>
+  >({
+    current_location: [],
+    pickup_location: [],
+    dropoff_location: [],
+  })
+  const [selectedSuggestions, setSelectedSuggestions] = useState<
+    Partial<Record<LocationFieldKey, LocationSuggestion>>
+  >({})
+  const [isSuggesting, setIsSuggesting] = useState<
+    Partial<Record<LocationFieldKey, boolean>>
+  >({})
+  const [openSuggestionsFor, setOpenSuggestionsFor] =
+    useState<LocationFieldKey | null>(null)
+
+  const debounceRef = useRef<Partial<Record<LocationFieldKey, number>>>({})
+  const abortRef = useRef<Partial<Record<LocationFieldKey, AbortController>>>({})
+  const closeMenuRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const debounceTimers = debounceRef.current
+    const abortControllers = abortRef.current
+    return () => {
+      for (const key of Object.keys(debounceTimers) as LocationFieldKey[]) {
+        const timerId = debounceTimers[key]
+        if (timerId) window.clearTimeout(timerId)
+      }
+      for (const key of Object.keys(abortControllers) as LocationFieldKey[]) {
+        abortControllers[key]?.abort()
+      }
+      if (closeMenuRef.current) window.clearTimeout(closeMenuRef.current)
+    }
+  }, [])
 
   const update = <Key extends keyof TripFormFields>(
     key: Key,
@@ -132,6 +203,47 @@ export function TripForm({
     setValues(next)
     setLocalErrors((current) => ({ ...current, [key]: undefined }))
     onChange(next)
+    if (!isLocationField(key)) return
+
+    setSelectedSuggestions((current) => ({ ...current, [key]: undefined }))
+    setOpenSuggestionsFor(key)
+    setSuggestions((current) => ({ ...current, [key]: [] }))
+    const timerId = debounceRef.current[key]
+    if (timerId) window.clearTimeout(timerId)
+    abortRef.current[key]?.abort()
+
+    const query = String(value ?? "").trim()
+    if (query.length < 3 || isLoading) {
+      setIsSuggesting((current) => ({ ...current, [key]: false }))
+      return
+    }
+
+    debounceRef.current[key] = window.setTimeout(async () => {
+      const controller = new AbortController()
+      abortRef.current[key] = controller
+      setIsSuggesting((current) => ({ ...current, [key]: true }))
+      try {
+        const nextSuggestions = await fetchLocationSuggestions(
+          query,
+          controller.signal,
+        )
+        setSuggestions((current) => ({ ...current, [key]: nextSuggestions }))
+      } catch {
+        setSuggestions((current) => ({ ...current, [key]: [] }))
+      } finally {
+        setIsSuggesting((current) => ({ ...current, [key]: false }))
+      }
+    }, 260)
+  }
+
+  const pickSuggestion = (key: LocationFieldKey, suggestion: LocationSuggestion) => {
+    const nextValues = { ...values, [key]: suggestion.label }
+    setValues(nextValues)
+    setLocalErrors((current) => ({ ...current, [key]: undefined }))
+    setSelectedSuggestions((current) => ({ ...current, [key]: suggestion }))
+    setSuggestions((current) => ({ ...current, [key]: [] }))
+    setOpenSuggestionsFor(null)
+    onChange(nextValues)
   }
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -145,13 +257,29 @@ export function TripForm({
       })
       return
     }
-    onSubmit({
+    const cleaned: TripFormFields = {
       ...values,
       current_location: values.current_location.trim(),
       pickup_location: values.pickup_location.trim(),
       dropoff_location: values.dropoff_location.trim(),
       current_cycle_used_hours: Number(values.current_cycle_used_hours),
-    })
+    }
+    const request: TripPlanRequest = {
+      current_location: toLocationInput(
+        cleaned.current_location,
+        selectedSuggestions.current_location,
+      ),
+      pickup_location: toLocationInput(
+        cleaned.pickup_location,
+        selectedSuggestions.pickup_location,
+      ),
+      dropoff_location: toLocationInput(
+        cleaned.dropoff_location,
+        selectedSuggestions.dropoff_location,
+      ),
+      current_cycle_used_hours: cleaned.current_cycle_used_hours,
+    }
+    onSubmit({ values: cleaned, request })
   }
 
   const errors = { ...fieldErrors, ...localErrors }
@@ -195,16 +323,67 @@ export function TripForm({
                 error={errors[key]}
                 icon={<Icon className="size-4" />}
               >
-                <Input
-                  id={key}
-                  name={key}
-                  value={values[key]}
-                  onChange={(event) => update(key, event.target.value)}
-                  disabled={isLoading}
-                  aria-invalid={Boolean(errors[key])}
-                  aria-describedby={cn(`${key}-description`, errors[key] && `${key}-error`)}
-                  {...field}
-                />
+                <div className="relative">
+                  <Input
+                    id={key}
+                    name={key}
+                    value={values[key]}
+                    onFocus={() => setOpenSuggestionsFor(key)}
+                    onBlur={() => {
+                      closeMenuRef.current = window.setTimeout(
+                        () => setOpenSuggestionsFor(null),
+                        120,
+                      )
+                    }}
+                    onChange={(event) => update(key, event.target.value)}
+                    disabled={isLoading}
+                    aria-invalid={Boolean(errors[key])}
+                    aria-describedby={cn(`${key}-description`, errors[key] && `${key}-error`)}
+                    {...field}
+                    autoComplete="off"
+                  />
+                  {selectedSuggestions[key] ? (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <Check className="size-3" />
+                      Using verified coordinates
+                    </p>
+                  ) : null}
+                  {openSuggestionsFor === key &&
+                  !isLoading &&
+                  (isSuggesting[key] || suggestions[key].length > 0) ? (
+                    <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border bg-card shadow-card">
+                      {isSuggesting[key] ? (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">
+                          Searching addresses...
+                        </p>
+                      ) : (
+                        <ul>
+                          {suggestions[key].map((suggestion) => (
+                            <li key={`${suggestion.label}-${suggestion.latitude}`}>
+                              <button
+                                type="button"
+                                className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-xs transition-colors hover:bg-muted"
+                                onMouseDown={(event) => {
+                                  event.preventDefault()
+                                  if (closeMenuRef.current) {
+                                    window.clearTimeout(closeMenuRef.current)
+                                  }
+                                  pickSuggestion(key, suggestion)
+                                }}
+                              >
+                                <span className="line-clamp-2">{suggestion.label}</span>
+                                <span className="shrink-0 text-[10px] text-muted-foreground">
+                                  {suggestion.latitude.toFixed(4)},{" "}
+                                  {suggestion.longitude.toFixed(4)}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </FormField>
             ))}
 
